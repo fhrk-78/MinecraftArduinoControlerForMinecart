@@ -4,7 +4,10 @@ import net.harupiza.macm.DataStore;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.MinecartEntity;
+import org.slf4j.Logger;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -12,6 +15,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PlayerEntity.class)
 public class TrainControlerMixin {
+    @Shadow @Final private static Logger LOGGER;
+
     @Unique
     private String getPowerID(Integer value) {
         if (value > 935) {
@@ -80,6 +85,9 @@ public class TrainControlerMixin {
     @Unique
     private String previousPowerID = "";
 
+    @Unique
+    private boolean isMinecart = false;
+
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
 
@@ -91,16 +99,20 @@ public class TrainControlerMixin {
         if (player == null) return;
 
         if(player.getVehicle() instanceof MinecartEntity) {
+            isMinecart = true;
+
             if (!previousPowerID.equals(powerID)) {
                 previousPowerID = powerID;
                 waittick = 0;
             }
 
+            LOGGER.info(client.options.forwardKey.isPressed() + "" + client.options.backKey.isPressed());
+
             if (powerID.equals("N")) {
                 client.options.forwardKey.setPressed(false);
                 client.options.backKey.setPressed(false);
             } else if (waittick <= 0) {
-                if (powerID.startsWith("B")) {
+                if (powerID.startsWith("B") || powerID.startsWith("E")) {
                     client.options.backKey.setPressed(true);
                     client.options.forwardKey.setPressed(false);
                 } else {
@@ -111,6 +123,12 @@ public class TrainControlerMixin {
                 waittick = getWaittick(powerID);
             } else {
                 waittick--;
+            }
+        } else {
+            if (isMinecart) {
+                client.options.forwardKey.setPressed(false);
+                client.options.backKey.setPressed(false);
+                isMinecart = false;
             }
         }
     }
